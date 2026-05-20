@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ShotMap 🥃</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0b08;
+    --surface: #1a1510;
+    --surface2: #231e17;
+    --surface3: #2e2820;
+    --amber: #e8a838;
+    --amber-light: #f5c96a;
+    --amber-dark: #b8821a;
+    --cream: #f5efe6;
+    --cream-dim: #c8bfaf;
+    --red: #c0392b;
+    --green: #27ae60;
+    --text: #f0e8d8;
+    --text-dim: #8a7d6a;
+    --border: rgba(232,168,56,0.15);
+    --radius: 16px;
+    --shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; overflow:hidden; }
+
+  /* ── LOADING ── */
+  #loading { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; }
+  #loading .logo { font-family:'Playfair Display',serif; font-size:3rem; color:var(--amber); }
+  #loading .sub { color:var(--text-dim); margin-top:.5rem; font-size:.9rem; }
+  .spinner { width:40px; height:40px; border:3px solid var(--surface3); border-top-color:var(--amber); border-radius:50%; animation:spin .8s linear infinite; margin-top:2rem; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ── AUTH ── */
+  #auth-screen { position:fixed; inset:0; background:var(--bg); display:none; flex-direction:column; align-items:center; justify-content:center; padding:2rem; z-index:100; overflow-y:auto; }
+  #auth-screen.active { display:flex; }
+  .auth-hero { text-align:center; margin-bottom:2.5rem; }
+  .auth-hero .glass-icon { font-size:4rem; margin-bottom:1rem; filter:drop-shadow(0 0 20px rgba(232,168,56,0.4)); }
+  .auth-hero h1 { font-family:'Playfair Display',serif; font-size:2.5rem; color:var(--amber); }
+  .auth-hero p { color:var(--text-dim); margin-top:.5rem; font-size:.95rem; }
+  .auth-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:2rem; width:100%; max-width:380px; }
+  .auth-tabs { display:flex; gap:.5rem; margin-bottom:1.5rem; }
+  .auth-tab { flex:1; padding:.6rem; border:none; border-radius:8px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:.9rem; font-weight:500; transition:.2s; }
+  .auth-tab.active { background:var(--amber); color:var(--bg); }
+  .auth-tab:not(.active) { background:var(--surface2); color:var(--text-dim); }
+  .form-group { margin-bottom:1rem; }
+  .form-group label { display:block; font-size:.8rem; color:var(--text-dim); margin-bottom:.4rem; text-transform:uppercase; letter-spacing:.05em; }
+  .form-group input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:.8rem 1rem; color:var(--text); font-family:'DM Sans',sans-serif; font-size:.95rem; outline:none; transition:.2s; }
+  .form-group input:focus { border-color:var(--amber); }
+  .btn { width:100%; padding:.85rem; border:none; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:1rem; font-weight:600; cursor:pointer; transition:.2s; }
+  .btn-amber { background:var(--amber); color:var(--bg); }
+  .btn-amber:hover { background:var(--amber-light); }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); margin-top:.75rem; }
+  .btn-google { background:var(--surface2); color:var(--text); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; gap:.5rem; }
+  .divider { display:flex; align-items:center; gap:1rem; margin:1rem 0; color:var(--text-dim); font-size:.85rem; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+  .auth-err { background:#3a1515; border:1px solid #6b2222; color:#e07070; padding:.75rem 1rem; border-radius:8px; font-size:.85rem; margin-top:1rem; display:none; }
+
+  /* ── APP SHELL ── */
+  #app { display:none; flex-direction:column; height:100vh; }
+  #app.active { display:flex; }
+
+  /* TOP BAR */
+  .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:.75rem 1rem; display:flex; align-items:center; gap:.75rem; flex-shrink:0; }
+  .topbar-logo { font-family:'Playfair Display',serif; font-size:1.3rem; color:var(--amber); flex:1; }
+  .topbar-btn { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:1.1rem; padding:.3rem; border-radius:8px; }
+  .topbar-btn:hover { color:var(--amber); }
+  .avatar { width:32px; height:32px; border-radius:50%; background:var(--amber); color:var(--bg); font-weight:700; font-size:.85rem; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; overflow:hidden; }
+  .avatar img { width:100%; height:100%; object-fit:cover; }
+
+  /* MAIN CONTENT */
+  #main-content { flex:1; overflow:hidden; position:relative; }
+  .page { position:absolute; inset:0; overflow-y:auto; display:none; padding-bottom:80px; }
+  .page.active { display:block; }
+
+  /* BOTTOM NAV */
+  .bottom-nav { background:var(--surface); border-top:1px solid var(--border); display:flex; flex-shrink:0; }
+  .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:.2rem; padding:.6rem .3rem; border:none; background:none; cursor:pointer; color:var(--text-dim); font-size:.6rem; font-family:'DM Sans',sans-serif; transition:.15s; }
+  .nav-btn span:first-child { font-size:1.3rem; }
+  .nav-btn.active { color:var(--amber); }
+
+  /* ── COLLECTION PAGE ── */
+  .page-header { padding:1.25rem 1rem .75rem; display:flex; align-items:center; gap:.5rem; }
+  .page-title { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--amber); flex:1; }
+  .search-bar { margin:0 1rem .75rem; position:relative; }
+  .search-bar input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:.7rem 1rem .7rem 2.5rem; color:var(--text); font-family:'DM Sans',sans-serif; font-size:.9rem; outline:none; }
+  .search-bar::before { content:'🔍'; position:absolute; left:.75rem; top:50%; transform:translateY(-50%); font-size:.85rem; }
+  .sort-bar { padding:0 1rem .75rem; display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:none; }
+  .sort-bar::-webkit-scrollbar { display:none; }
+  .sort-chip { flex-shrink:0; padding:.35rem .8rem; border-radius:20px; border:1px solid var(--border); background:var(--surface2); color:var(--text-dim); font-size:.78rem; cursor:pointer; transition:.15s; white-space:nowrap; }
+  .sort-chip.active { background:var(--amber); color:var(--bg); border-color:var(--amber); }
+  .shots-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; padding:0 1rem; }
+  .shot-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; cursor:pointer; transition:.2s; }
+  .shot-card:active { transform:scale(.97); }
+  .shot-img { width:100%; aspect-ratio:1; object-fit:cover; background:var(--surface2); }
+  .shot-img-placeholder { width:100%; aspect-ratio:1; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:2.5rem; }
+  .shot-info { padding:.6rem .75rem .75rem; }
+  .shot-name { font-weight:600; font-size:.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shot-place { font-size:.75rem; color:var(--text-dim); margin-top:.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shot-likes { display:flex; align-items:center; gap:.25rem; font-size:.75rem; color:var(--text-dim); margin-top:.4rem; }
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-dim); }
+  .empty-state .icon { font-size:3rem; margin-bottom:1rem; }
+  .empty-state p { font-size:.9rem; margin-bottom:1.5rem; }
+  .fab { position:fixed; bottom:80px; right:1rem; width:54px; height:54px; border-radius:50%; background:var(--amber); border:none; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 16px rgba(232,168,56,.4); display:flex; align-items:center; justify-content:center; transition:.2s; z-index:10; }
+  .fab:active { transform:scale(.92); }
+
+  /* ── MODAL ── */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; display:none; align-items:flex-end; }
+  .modal-overlay.active { display:flex; }
+  .modal { background:var(--surface); border-radius:20px 20px 0 0; width:100%; max-height:90vh; overflow-y:auto; padding:1.5rem; }
+  .modal-handle { width:40px; height:4px; background:var(--surface3); border-radius:2px; margin:0 auto 1.25rem; }
+  .modal-title { font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--amber); margin-bottom:1.25rem; }
+  .img-upload-area { width:100%; aspect-ratio:16/9; background:var(--surface2); border:2px dashed var(--border); border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; margin-bottom:1rem; position:relative; overflow:hidden; }
+  .img-upload-area img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .img-upload-area .upload-hint { font-size:2rem; margin-bottom:.5rem; }
+  .img-upload-area .upload-text { font-size:.85rem; color:var(--text-dim); }
+  input[type=file] { display:none; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .modal-actions { display:flex; gap:.75rem; margin-top:1.25rem; }
+  .btn-sm { flex:1; padding:.75rem; border-radius:10px; font-family:'DM Sans',sans-serif; font-weight:600; font-size:.9rem; cursor:pointer; border:none; }
+  .btn-cancel { background:var(--surface2); color:var(--text-dim); }
+  .btn-save { background:var(--amber); color:var(--bg); }
+  .btn-delete { background:#3a1515; color:#e07070; border:1px solid #6b2222; }
+
+  /* SHOT DETAIL MODAL */
+  .shot-detail-img { width:100%; border-radius:12px; aspect-ratio:4/3; object-fit:cover; background:var(--surface2); margin-bottom:1rem; }
+  .shot-detail-img-ph { width:100%; border-radius:12px; aspect-ratio:4/3; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:4rem; margin-bottom:1rem; }
+  .detail-title { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--amber); }
+  .detail-meta { color:var(--text-dim); font-size:.85rem; margin:.5rem 0 1rem; }
+  .detail-note { background:var(--surface2); border-radius:8px; padding:.75rem 1rem; font-size:.9rem; color:var(--cream-dim); margin-bottom:1rem; }
+  .like-btn { display:flex; align-items:center; gap:.5rem; padding:.6rem 1.2rem; border-radius:20px; border:1px solid var(--border); background:var(--surface2); cursor:pointer; font-size:.9rem; color:var(--text-dim); font-family:'DM Sans',sans-serif; transition:.2s; }
+  .like-btn.liked { background:#3a1515; border-color:#c0392b; color:#e07070; }
+
+  /* ── MAP PAGE ── */
+  #map-container { width:100%; height:calc(100vh - 130px); position:relative; }
+  #worldmap { width:100%; height:100%; }
+  .map-legend { position:absolute; bottom:1rem; left:1rem; right:1rem; background:rgba(26,21,16,.9); border:1px solid var(--border); border-radius:12px; padding:.75rem 1rem; }
+  .legend-title { font-size:.8rem; color:var(--text-dim); margin-bottom:.5rem; }
+  .legend-items { display:flex; gap:1rem; flex-wrap:wrap; }
+  .legend-item { display:flex; align-items:center; gap:.35rem; font-size:.75rem; color:var(--cream-dim); }
+  .legend-dot { width:10px; height:10px; border-radius:50%; }
+
+  /* ── STATS PAGE ── */
+  .stats-section { padding:1rem; }
+  .stats-hero { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; text-align:center; margin-bottom:1rem; }
+  .stats-big-num { font-family:'Playfair Display',serif; font-size:3.5rem; color:var(--amber); line-height:1; }
+  .stats-big-label { font-size:.85rem; color:var(--text-dim); margin-top:.25rem; }
+  .continent-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:1rem; }
+  .continent-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem; }
+  .continent-name { font-size:.8rem; color:var(--text-dim); margin-bottom:.25rem; }
+  .continent-num { font-family:'Playfair Display',serif; font-size:1.8rem; color:var(--amber); }
+  .continent-bar { height:4px; background:var(--surface3); border-radius:2px; margin-top:.5rem; overflow:hidden; }
+  .continent-bar-fill { height:100%; background:var(--amber); border-radius:2px; transition:width .6s ease; }
+  .italy-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1rem; }
+  .italy-title { font-weight:600; margin-bottom:.75rem; display:flex; align-items:center; gap:.5rem; }
+  .region-item { display:flex; align-items:center; justify-content:space-between; padding:.5rem 0; border-bottom:1px solid var(--border); }
+  .region-item:last-child { border-bottom:none; }
+  .region-name { font-size:.85rem; color:var(--cream-dim); }
+  .region-count { font-weight:600; color:var(--amber); }
+
+  /* ── FRIENDS PAGE ── */
+  .friends-search { padding:1rem; }
+  .friends-list { padding:0 1rem; }
+  .friend-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem; display:flex; align-items:center; gap:.75rem; margin-bottom:.75rem; }
+  .friend-avatar { width:44px; height:44px; border-radius:50%; background:var(--amber); color:var(--bg); font-weight:700; font-size:1.1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+  .friend-avatar img { width:100%; height:100%; object-fit:cover; }
+  .friend-info { flex:1; }
+  .friend-name { font-weight:600; font-size:.95rem; }
+  .friend-count { font-size:.75rem; color:var(--text-dim); margin-top:.15rem; }
+  .friend-action { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:.4rem .75rem; font-size:.8rem; cursor:pointer; color:var(--text-dim); font-family:'DM Sans',sans-serif; }
+  .friend-action.pending { color:var(--amber); border-color:var(--amber-dark); }
+  .friend-action.accept { color:var(--green); border-color:var(--green); }
+  .friend-action.view { color:var(--text); }
+  .section-label { font-size:.75rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; padding:.75rem 0 .5rem; }
+
+  /* FRIEND COLLECTION VIEW */
+  .friend-view-header { padding:1rem; display:flex; align-items:center; gap:.75rem; }
+  .back-btn { background:none; border:none; color:var(--amber); font-size:1.1rem; cursor:pointer; padding:.3rem; }
+
+  /* ── PROFILE ── */
+  .profile-modal { padding:1.5rem; }
+  .profile-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; }
+  .profile-avatar-big { width:64px; height:64px; border-radius:50%; background:var(--amber); color:var(--bg); font-weight:700; font-size:1.5rem; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .profile-avatar-big img { width:100%; height:100%; object-fit:cover; }
+  .profile-name { font-family:'Playfair Display',serif; font-size:1.3rem; color:var(--amber); }
+  .profile-email { font-size:.8rem; color:var(--text-dim); }
+  .profile-stat { background:var(--surface2); border-radius:10px; padding:.75rem 1rem; margin-bottom:.5rem; display:flex; justify-content:space-between; align-items:center; }
+  .profile-stat-label { font-size:.85rem; color:var(--text-dim); }
+  .profile-stat-val { font-weight:600; color:var(--amber); }
+  .logout-btn { width:100%; margin-top:1rem; padding:.8rem; background:#3a1515; border:1px solid #6b2222; color:#e07070; border-radius:10px; font-family:'DM Sans',sans-serif; font-weight:600; cursor:pointer; }
+
+  /* TOAST */
+  .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface2); border:1px solid var(--border); border-radius:30px; padding:.6rem 1.2rem; font-size:.85rem; color:var(--text); z-index:500; opacity:0; transition:.3s; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* Progress upload */
+  .upload-progress { display:none; align-items:center; gap:.75rem; padding:.6rem; background:var(--surface2); border-radius:8px; margin-bottom:.75rem; }
+  .upload-progress.visible { display:flex; }
+  .upload-progress-bar { flex:1; height:4px; background:var(--surface3); border-radius:2px; overflow:hidden; }
+  .upload-progress-fill { height:100%; background:var(--amber); border-radius:2px; width:0; transition:width .2s; }
+  .upload-progress-text { font-size:.8rem; color:var(--text-dim); flex-shrink:0; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--surface3); border-radius:2px; }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .shot-card { animation:fadeIn .3s ease both; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="logo">🥃 ShotMap</div>
+  <div class="sub">La tua collezione di shot</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-hero">
+    <div class="glass-icon">🥃</div>
+    <h1>ShotMap</h1>
+    <p>Traccia la tua collezione di bicchierini</p>
+  </div>
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Accedi</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">Registrati</button>
+    </div>
+    <div id="login-form">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="tua@email.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-pwd" placeholder="••••••••">
+      </div>
+      <button class="btn btn-amber" onclick="doLogin()">Accedi</button>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="form-group">
+        <label>Nome</label>
+        <input type="text" id="reg-name" placeholder="Il tuo nome">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="tua@email.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="reg-pwd" placeholder="••••••••">
+      </div>
+      <button class="btn btn-amber" onclick="doRegister()">Crea account</button>
+    </div>
+    <div class="divider">oppure</div>
+    <button class="btn btn-google" onclick="doGoogleLogin()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continua con Google
+    </button>
+    <div class="auth-err" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-logo">🥃 ShotMap</div>
+    <div class="avatar" onclick="openProfile()" id="topbar-avatar">?</div>
+  </div>
+
+  <!-- PAGES -->
+  <div id="main-content">
+
+    <!-- COLLECTION -->
+    <div class="page active" id="page-collection">
+      <div class="page-header">
+        <div class="page-title" id="coll-title">La mia collezione</div>
+        <span id="coll-count" style="color:var(--text-dim);font-size:.85rem;"></span>
+      </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Cerca bicchierino, luogo..." id="search-input" oninput="filterShots()">
+      </div>
+      <div class="sort-bar">
+        <div class="sort-chip active" onclick="sortShots('date')">🕐 Data</div>
+        <div class="sort-chip" onclick="sortShots('name')">🔤 Nome</div>
+        <div class="sort-chip" onclick="sortShots('place')">📍 Luogo</div>
+        <div class="sort-chip" onclick="sortShots('continent')">🌍 Continente</div>
+        <div class="sort-chip" onclick="sortShots('likes')">❤️ Like</div>
+      </div>
+      <div class="shots-grid" id="shots-grid"></div>
+      <div id="collection-empty" class="empty-state" style="display:none">
+        <div class="icon">🥃</div>
+        <p>Nessun bicchierino ancora!<br>Aggiungine uno con il + in basso</p>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div class="page" id="page-map">
+      <div class="page-header">
+        <div class="page-title">Mappa</div>
+      </div>
+      <div id="map-container">
+        <div id="worldmap"></div>
+        <div class="map-legend">
+          <div class="legend-title">Paesi visitati</div>
+          <div class="legend-items">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Visitato</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--surface3)"></div>Non visitato</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="page" id="page-stats">
+      <div class="page-header">
+        <div class="page-title">Statistiche</div>
+      </div>
+      <div class="stats-section">
+        <div class="stats-hero">
+          <div class="stats-big-num" id="stat-total">0</div>
+          <div class="stats-big-label">bicchierini totali</div>
+        </div>
+        <div class="continent-grid" id="continent-grid"></div>
+        <div class="italy-section" id="italy-section" style="display:none">
+          <div class="italy-title">🇮🇹 Regioni d'Italia</div>
+          <div id="italy-regions"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRIENDS -->
+    <div class="page" id="page-friends">
+      <div class="page-header">
+        <div class="page-title">Amici</div>
+      </div>
+      <div class="friends-search">
+        <div class="search-bar" style="margin:0">
+          <input type="text" placeholder="Cerca per email o nome..." id="friend-search-input" oninput="searchFriends()">
+        </div>
+      </div>
+      <div class="friends-list" id="friends-list">
+        <div class="section-label">I tuoi amici</div>
+        <div id="my-friends"></div>
+        <div id="friend-requests-section" style="display:none">
+          <div class="section-label">Richieste in arrivo</div>
+          <div id="friend-requests"></div>
+        </div>
+        <div id="search-results-section" style="display:none">
+          <div class="section-label">Risultati ricerca</div>
+          <div id="friend-search-results"></div>
+        </div>
+      </div>
+      <!-- Friend's collection view -->
+      <div id="friend-collection-view" style="display:none;position:absolute;inset:0;background:var(--bg);overflow-y:auto;padding-bottom:80px;">
+        <div class="friend-view-header">
+          <button class="back-btn" onclick="closeFriendView()">← Indietro</button>
+          <div id="friend-view-name" style="font-weight:600"></div>
+        </div>
+        <div class="shots-grid" id="friend-shots-grid"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="showPage('collection')" id="nav-collection">
+      <span>🥃</span><span>Collezione</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('map')" id="nav-map">
+      <span>🗺️</span><span>Mappa</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('stats')" id="nav-stats">
+      <span>📊</span><span>Statistiche</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('friends')" id="nav-friends">
+      <span>👥</span><span>Amici</span>
+    </button>
+  </nav>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab-add" onclick="openAddModal()" style="display:none">+</button>
+
+<!-- ADD/EDIT SHOT MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="add-modal-title">Nuovo bicchierino 🥃</div>
+    <div class="img-upload-area" id="img-upload-area" onclick="document.getElementById('img-file-input').click()">
+      <div class="upload-hint">📷</div>
+      <div class="upload-text">Tocca per aggiungere foto</div>
+    </div>
+    <input type="file" id="img-file-input" accept="image/*" onchange="handleImageSelect(event)">
+    <div class="upload-progress" id="upload-progress">
+      <div class="upload-progress-bar"><div class="upload-progress-fill" id="upload-progress-fill"></div></div>
+      <div class="upload-progress-text" id="upload-progress-text">0%</div>
+    </div>
+    <div class="form-group">
+      <label>Nome bicchierino *</label>
+      <input type="text" id="shot-name" placeholder="es. Bicchierino di Venezia">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Luogo *</label>
+        <input type="text" id="shot-place" placeholder="Città, Paese">
+      </div>
+      <div class="form-group">
+        <label>Paese</label>
+        <input type="text" id="shot-country" placeholder="Italia">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Continente</label>
+        <input type="text" id="shot-continent" placeholder="Europa">
+      </div>
+      <div class="form-group">
+        <label>Regione italiana</label>
+        <input type="text" id="shot-region" placeholder="Veneto">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Note</label>
+      <input type="text" id="shot-note" placeholder="Acquistato in vacanza...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-cancel" onclick="closeAddModal()">Annulla</button>
+      <button class="btn-sm btn-save" onclick="saveShot()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHOT DETAIL MODAL -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="detail-img-wrap"></div>
+    <div class="detail-title" id="detail-name"></div>
+    <div class="detail-meta" id="detail-meta"></div>
+    <div class="detail-note" id="detail-note" style="display:none"></div>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+      <button class="like-btn" id="detail-like-btn" onclick="toggleLike()">❤️ <span id="detail-like-count">0</span> like</button>
+      <button class="btn-sm btn-save" style="flex:1" onclick="openEditModal()">✏️ Modifica</button>
+      <button class="btn-sm btn-delete" onclick="confirmDelete()">🗑️</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal profile-modal">
+    <div class="modal-handle"></div>
+    <div class="profile-header">
+      <div class="profile-avatar-big" id="profile-avatar-big">?</div>
+      <div>
+        <div class="profile-name" id="profile-name-display"></div>
+        <div class="profile-email" id="profile-email-display"></div>
+      </div>
+    </div>
+    <div class="profile-stat"><span class="profile-stat-label">Bicchierini totali</span><span class="profile-stat-val" id="pstat-total">0</span></div>
+    <div class="profile-stat"><span class="profile-stat-label">Paesi visitati</span><span class="profile-stat-val" id="pstat-countries">0</span></div>
+    <div class="profile-stat"><span class="profile-stat-label">Amici</span><span class="profile-stat-val" id="pstat-friends">0</span></div>
+    <button class="logout-btn" onclick="doLogout()">Esci dall'account</button>
+    <button class="btn-sm btn-cancel" style="width:100%;margin-top:.5rem" onclick="closeProfileModal()">Chiudi</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, serverTimestamp, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+// ── FIREBASE CONFIG ──
+const firebaseConfig = {
+  apiKey: "AIzaSyBeE7yFqkAhLZH7A04AG2NqramZCKElU2A",
+  authDomain: "shotmap-9cb58.firebaseapp.com",
+  projectId: "shotmap-9cb58",
+  storageBucket: "shotmap-9cb58.firebasestorage.app",
+  messagingSenderId: "39326588472",
+  appId: "1:39326588472:web:6ec34b0c4ed7e4cfc110cd"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const googleProvider = new GoogleAuthProvider();
+
+// ── STATE ──
+let currentUser = null;
+let myShots = [];
+let filteredShots = [];
+let currentSort = 'date';
+let currentShotId = null;
+let editingShot = null;
+let selectedImageFile = null;
+let selectedImageDataUrl = null;
+let friendsData = [];
+let mapInitialized = false;
+let viewingFriendId = null;
+
+// ── AUTH STATE ──
+onAuthStateChanged(auth, async user => {
+  document.getElementById('loading').style.display = 'none';
+  if (user) {
+    currentUser = user;
+    showApp();
+    await ensureUserDoc();
+    loadMyShots();
+    loadFriends();
+    updateTopBar();
+  } else {
+    currentUser = null;
+    showAuthScreen();
+  }
+});
+
+async function ensureUserDoc() {
+  const uRef = doc(db, 'users', currentUser.uid);
+  const snap = await getDoc(uRef);
+  if (!snap.exists()) {
+    await setDoc(uRef, {
+      uid: currentUser.uid,
+      name: currentUser.displayName || currentUser.email.split('@')[0],
+      email: currentUser.email,
+      photoURL: currentUser.photoURL || null,
+      friends: [],
+      friendRequests: [],
+      createdAt: serverTimestamp()
+    });
+  }
+}
+
+function updateTopBar() {
+  const av = document.getElementById('topbar-avatar');
+  if (currentUser.photoURL) {
+    av.innerHTML = `<img src="${currentUser.photoURL}" alt="">`;
+  } else {
+    const n = currentUser.displayName || currentUser.email || '?';
+    av.textContent = n[0].toUpperCase();
+  }
+}
+
+// ── UI HELPERS ──
+function showApp() {
+  document.getElementById('auth-screen').classList.remove('active');
+  document.getElementById('app').classList.add('active');
+  document.getElementById('fab-add').style.display = 'flex';
+}
+function showAuthScreen() {
+  document.getElementById('auth-screen').classList.add('active');
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('fab-add').style.display = 'none';
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+window.showPage = function(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  if (page === 'map') initMap();
+  if (page === 'stats') renderStats();
+  if (page === 'friends') renderFriends();
+  const fab = document.getElementById('fab-add');
+  fab.style.display = (page === 'collection') ? 'flex' : 'none';
+};
+
+// ── AUTH ACTIONS ──
+window.switchAuthTab = function(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')));
+  document.getElementById('login-form').style.display = tab==='login'?'block':'none';
+  document.getElementById('register-form').style.display = tab==='register'?'block':'none';
+};
+window.doLogin = async function() {
+  const e = document.getElementById('login-email').value;
+  const p = document.getElementById('login-pwd').value;
+  try { await signInWithEmailAndPassword(auth, e, p); } catch(err) { showAuthErr(err.message); }
+};
+window.doRegister = async function() {
+  const name = document.getElementById('reg-name').value;
+  const e = document.getElementById('reg-email').value;
+  const p = document.getElementById('reg-pwd').value;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, e, p);
+    await updateProfile(cred.user, { displayName: name });
+  } catch(err) { showAuthErr(err.message); }
+};
+window.doGoogleLogin = async function() {
+  try { await signInWithPopup(auth, googleProvider); } catch(err) { showAuthErr(err.message); }
+};
+window.doLogout = async function() {
+  await signOut(auth);
+  closeProfileModal();
+  myShots = [];
+  filteredShots = [];
+};
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  let m = msg.replace('Firebase: ','').replace(/\(auth.*\)/,'').trim();
+  if(m.includes('email-already')) m = 'Email già in uso.';
+  if(m.includes('wrong-password')||m.includes('invalid-credential')) m = 'Email o password errata.';
+  if(m.includes('user-not-found')) m = 'Utente non trovato.';
+  if(m.includes('weak-password')) m = 'Password troppo debole (min 6 char).';
+  el.textContent = m;
+  el.style.display = 'block';
+}
+
+// ── SHOTS CRUD ──
+async function loadMyShots() {
+  try {
+    const q = query(collection(db, 'shots'), where('userId','==', currentUser.uid));
+    onSnapshot(q, snap => {
+      myShots = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      myShots.sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+      applyFilterAndSort();
+    });
+  } catch(e) { console.error(e); }
+}
+
+function applyFilterAndSort() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  filteredShots = myShots.filter(s =>
+    s.name?.toLowerCase().includes(q) ||
+    s.place?.toLowerCase().includes(q) ||
+    s.country?.toLowerCase().includes(q) ||
+    s.continent?.toLowerCase().includes(q)
+  );
+  if (currentSort==='name') filteredShots.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  else if (currentSort==='place') filteredShots.sort((a,b)=>(a.place||'').localeCompare(b.place||''));
+  else if (currentSort==='continent') filteredShots.sort((a,b)=>(a.continent||'').localeCompare(b.continent||''));
+  else if (currentSort==='likes') filteredShots.sort((a,b)=>((b.likes||[]).length)-((a.likes||[]).length));
+  else filteredShots.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+  renderShots(filteredShots, 'shots-grid', 'collection-empty');
+  document.getElementById('coll-count').textContent = myShots.length + ' bicchierini';
+}
+
+window.filterShots = () => applyFilterAndSort();
+window.sortShots = function(s) {
+  currentSort = s;
+  document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  applyFilterAndSort();
+};
+
+function renderShots(shots, gridId, emptyId) {
+  const grid = document.getElementById(gridId);
+  const empty = document.getElementById(emptyId);
+  if (!shots.length) {
+    grid.innerHTML = '';
+    if(empty) empty.style.display = 'block';
+    return;
+  }
+  if(empty) empty.style.display = 'none';
+  grid.innerHTML = shots.map((s,i) => `
+    <div class="shot-card" style="animation-delay:${i*40}ms" onclick="openDetail('${s.id}')">
+      ${s.imageUrl
+        ? `<img class="shot-img" src="${s.imageUrl}" alt="${s.name}" loading="lazy">`
+        : `<div class="shot-img-placeholder">🥃</div>`}
+      <div class="shot-info">
+        <div class="shot-name">${s.name||'Senza nome'}</div>
+        <div class="shot-place">📍 ${s.place||''} ${s.country?'· '+s.country:''}</div>
+        <div class="shot-likes">❤️ ${(s.likes||[]).length}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── ADD / EDIT MODAL ──
+window.openAddModal = function() {
+  editingShot = null;
+  currentShotId = null;
+  selectedImageFile = null;
+  selectedImageDataUrl = null;
+  document.getElementById('add-modal-title').textContent = 'Nuovo bicchierino 🥃';
+  ['shot-name','shot-place','shot-country','shot-continent','shot-region','shot-note'].forEach(id => document.getElementById(id).value = '');
+  const area = document.getElementById('img-upload-area');
+  area.innerHTML = `<div class="upload-hint">📷</div><div class="upload-text">Tocca per aggiungere foto</div>`;
+  document.getElementById('upload-progress').classList.remove('visible');
+  document.getElementById('add-modal').classList.add('active');
+};
+window.openEditModal = function() {
+  closeDetailModal();
+  const s = myShots.find(x=>x.id===currentShotId);
+  if (!s) return;
+  editingShot = s;
+  document.getElementById('add-modal-title').textContent = 'Modifica bicchierino ✏️';
+  document.getElementById('shot-name').value = s.name||'';
+  document.getElementById('shot-place').value = s.place||'';
+  document.getElementById('shot-country').value = s.country||'';
+  document.getElementById('shot-continent').value = s.continent||'';
+  document.getElementById('shot-region').value = s.region||'';
+  document.getElementById('shot-note').value = s.note||'';
+  const area = document.getElementById('img-upload-area');
+  if (s.imageUrl) {
+    area.innerHTML = `<img src="${s.imageUrl}" alt="">`;
+  } else {
+    area.innerHTML = `<div class="upload-hint">📷</div><div class="upload-text">Tocca per aggiungere foto</div>`;
+  }
+  selectedImageFile = null;
+  selectedImageDataUrl = null;
+  document.getElementById('upload-progress').classList.remove('visible');
+  document.getElementById('add-modal').classList.add('active');
+};
+window.closeAddModal = function() {
+  document.getElementById('add-modal').classList.remove('active');
+};
+window.handleImageSelect = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  selectedImageFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    selectedImageDataUrl = ev.target.result;
+    const area = document.getElementById('img-upload-area');
+    area.innerHTML = `<img src="${selectedImageDataUrl}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+  };
+  reader.readAsDataURL(file);
+};
+
+window.saveShot = async function() {
+  const name = document.getElementById('shot-name').value.trim();
+  const place = document.getElementById('shot-place').value.trim();
+  if (!name) { showToast('⚠️ Inserisci il nome'); return; }
+
+  let imageUrl = editingShot?.imageUrl || null;
+  let imagePath = editingShot?.imagePath || null;
+
+  // Upload image if selected
+  if (selectedImageFile) {
+    try {
+      const path = `shots/${currentUser.uid}/${Date.now()}_${selectedImageFile.name}`;
+      const ref = storageRef(storage, path);
+      const task = uploadBytesResumable(ref, selectedImageFile);
+      document.getElementById('upload-progress').classList.add('visible');
+      await new Promise((res,rej) => {
+        task.on('state_changed',
+          snap => {
+            const pct = Math.round(snap.bytesTransferred/snap.totalBytes*100);
+            document.getElementById('upload-progress-fill').style.width = pct+'%';
+            document.getElementById('upload-progress-text').textContent = pct+'%';
+          },
+          rej, res
+        );
+      });
+      imageUrl = await getDownloadURL(ref);
+      imagePath = path;
+      // Delete old image if editing
+      if (editingShot?.imagePath && editingShot.imagePath !== path) {
+        try { await deleteObject(storageRef(storage, editingShot.imagePath)); } catch(e){}
+      }
+    } catch(e) { showToast('❌ Errore caricamento foto'); return; }
+  }
+
+  const data = {
+    name,
+    place: document.getElementById('shot-place').value.trim(),
+    country: document.getElementById('shot-country').value.trim(),
+    continent: document.getElementById('shot-continent').value.trim(),
+    region: document.getElementById('shot-region').value.trim(),
+    note: document.getElementById('shot-note').value.trim(),
+    imageUrl, imagePath,
+    userId: currentUser.uid,
+    userName: currentUser.displayName || currentUser.email,
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    if (editingShot) {
+      await updateDoc(doc(db,'shots',editingShot.id), data);
+      showToast('✅ Aggiornato!');
+    } else {
+      data.createdAt = serverTimestamp();
+      data.likes = [];
+      await addDoc(collection(db,'shots'), data);
+      showToast('✅ Aggiunto!');
+    }
+    closeAddModal();
+  } catch(e) { showToast('❌ Errore: '+e.message); }
+};
+
+// ── DETAIL MODAL ──
+window.openDetail = function(id) {
+  currentShotId = id;
+  const s = myShots.find(x=>x.id===id);
+  if (!s) return;
+  const imgWrap = document.getElementById('detail-img-wrap');
+  imgWrap.innerHTML = s.imageUrl
+    ? `<img class="shot-detail-img" src="${s.imageUrl}" alt="">`
+    : `<div class="shot-detail-img-ph">🥃</div>`;
+  document.getElementById('detail-name').textContent = s.name||'';
+  document.getElementById('detail-meta').textContent = [s.place, s.country, s.continent].filter(Boolean).join(' · ');
+  const noteEl = document.getElementById('detail-note');
+  if (s.note) { noteEl.textContent = s.note; noteEl.style.display='block'; } else noteEl.style.display='none';
+  const liked = (s.likes||[]).includes(currentUser.uid);
+  const lb = document.getElementById('detail-like-btn');
+  lb.className = 'like-btn' + (liked?' liked':'');
+  lb.innerHTML = (liked?'❤️':'🤍') + ' <span id="detail-like-count">'+(s.likes||[]).length+'</span> like';
+  // Show edit/delete only if own shot
+  document.querySelector('#detail-modal .btn-sm.btn-save').style.display = s.userId===currentUser.uid?'':'none';
+  document.querySelector('#detail-modal .btn-sm.btn-delete').style.display = s.userId===currentUser.uid?'':'none';
+  document.getElementById('detail-modal').classList.add('active');
+};
+function closeDetailModal() { document.getElementById('detail-modal').classList.remove('active'); }
+window.closeDetailModal = closeDetailModal;
+
+window.toggleLike = async function() {
+  const s = myShots.find(x=>x.id===currentShotId);
+  if (!s) return;
+  const liked = (s.likes||[]).includes(currentUser.uid);
+  await updateDoc(doc(db,'shots',currentShotId), {
+    likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid)
+  });
+  // Update locally
+  if (liked) s.likes = (s.likes||[]).filter(x=>x!==currentUser.uid);
+  else s.likes = [...(s.likes||[]), currentUser.uid];
+  openDetail(currentShotId);
+};
+
+window.confirmDelete = async function() {
+  if (!confirm('Eliminare questo bicchierino?')) return;
+  const s = myShots.find(x=>x.id===currentShotId);
+  if (s?.imagePath) { try { await deleteObject(storageRef(storage,s.imagePath)); } catch(e){} }
+  await deleteDoc(doc(db,'shots',currentShotId));
+  closeDetailModal();
+  showToast('🗑️ Eliminato');
+};
+
+// ── PROFILE ──
+window.openProfile = function() {
+  const n = currentUser.displayName || currentUser.email || '?';
+  document.getElementById('profile-name-display').textContent = n;
+  document.getElementById('profile-email-display').textContent = currentUser.email||'';
+  const av = document.getElementById('profile-avatar-big');
+  if (currentUser.photoURL) av.innerHTML = `<img src="${currentUser.photoURL}" alt="">`;
+  else av.textContent = n[0].toUpperCase();
+  document.getElementById('pstat-total').textContent = myShots.length;
+  const countries = new Set(myShots.map(s=>s.country).filter(Boolean));
+  document.getElementById('pstat-countries').textContent = countries.size;
+  document.getElementById('pstat-friends').textContent = friendsData.length;
+  document.getElementById('profile-modal').classList.add('active');
+};
+window.closeProfileModal = function() { document.getElementById('profile-modal').classList.remove('active'); };
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if(e.target===o) { o.classList.remove('active'); } });
+});
+
+// ── STATS ──
+const CONTINENTS = ['Europa','America','Asia','Africa','Oceania','Antartide'];
+const ITALY_REGIONS = ['Abruzzo','Basilicata','Calabria','Campania','Emilia-Romagna','Friuli-Venezia Giulia','Lazio','Liguria','Lombardia','Marche','Molise','Piemonte','Puglia','Sardegna','Sicilia','Toscana','Trentino-Alto Adige','Umbria','Valle d\'Aosta','Veneto'];
+
+function renderStats() {
+  document.getElementById('stat-total').textContent = myShots.length;
+  const max = myShots.length || 1;
+  const cg = document.getElementById('continent-grid');
+  cg.innerHTML = CONTINENTS.map(c => {
+    const cnt = myShots.filter(s=>s.continent===c).length;
+    const pct = Math.round(cnt/max*100);
+    return `<div class="continent-card">
+      <div class="continent-name">${continentEmoji(c)} ${c}</div>
+      <div class="continent-num">${cnt}</div>
+      <div class="continent-bar"><div class="continent-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+  // Italy
+  const italyShots = myShots.filter(s=>s.country==='Italia'||s.country==='Italy');
+  const ir = document.getElementById('italy-regions');
+  const is_ = document.getElementById('italy-section');
+  if (italyShots.length) {
+    is_.style.display='block';
+    const regionCounts = {};
+    italyShots.forEach(s => { if(s.region) regionCounts[s.region] = (regionCounts[s.region]||0)+1; });
+    const sorted = Object.entries(regionCounts).sort((a,b)=>b[1]-a[1]);
+    ir.innerHTML = (sorted.length ? sorted : ITALY_REGIONS.map(r=>[r,0])).map(([r,n])=>`
+      <div class="region-item">
+        <span class="region-name">${r}</span>
+        <span class="region-count">${n||0}</span>
+      </div>`).join('');
+  } else { is_.style.display='none'; }
+}
+function continentEmoji(c) {
+  const m = {Europa:'🇪🇺',America:'🌎',Asia:'🌏',Africa:'🌍',Oceania:'🏝️',Antartide:'🧊'};
+  return m[c]||'🌐';
+}
+
+// ── MAP ──
+function initMap() {
+  if (mapInitialized) { renderMapMarkers(); return; }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+  document.head.appendChild(link);
+  document.body.appendChild(script);
+  script.onload = () => {
+    window._map = L.map('worldmap', { zoomControl:true, attributionControl:false }).setView([20,10],2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(window._map);
+    mapInitialized = true;
+    renderMapMarkers();
+  };
+}
+function renderMapMarkers() {
+  if (!window._map || !window.L) return;
+  if (window._mapMarkers) window._mapMarkers.forEach(m=>m.remove());
+  window._mapMarkers = [];
+  const icon = window.L.divIcon({
+    className:'', iconSize:[28,28], iconAnchor:[14,14],
+    html:'<div style="background:#e8a838;border:2px solid #fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.5)">🥃</div>'
+  });
+  const placed = new Set();
+  myShots.filter(s=>s.place).forEach(s => {
+    const key = s.place+s.country;
+    if (placed.has(key)) return;
+    placed.add(key);
+    geocodePlace(s.place+', '+(s.country||'')).then(coords => {
+      if (!coords) return;
+      const m = L.marker(coords, {icon}).addTo(window._map);
+      m.bindPopup(`<b>${s.name}</b><br>${s.place}`);
+      window._mapMarkers.push(m);
+    });
+  });
+}
+async function geocodePlace(place) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(place)}&format=json&limit=1`);
+    const d = await r.json();
+    if (d[0]) return [parseFloat(d[0].lat), parseFloat(d[0].lon)];
+  } catch(e){}
+  return null;
+}
+
+// ── FRIENDS ──
+async function loadFriends() {
+  try {
+    const uRef = doc(db,'users',currentUser.uid);
+    onSnapshot(uRef, snap => {
+      const data = snap.data();
+      friendsData = data?.friends || [];
+      const requests = data?.friendRequests || [];
+      renderFriendRequests(requests);
+    });
+  } catch(e){}
+}
+
+function renderFriends() {
+  const myF = document.getElementById('my-friends');
+  if (!friendsData.length) {
+    myF.innerHTML = '<div style="color:var(--text-dim);font-size:.85rem;padding:.5rem 0">Nessun amico ancora. Cerca per email!</div>';
+    return;
+  }
+  Promise.all(friendsData.map(uid => getDoc(doc(db,'users',uid)))).then(snaps => {
+    myF.innerHTML = snaps.map(s => {
+      if (!s.exists()) return '';
+      const u = s.data();
+      const av = u.photoURL ? `<img src="${u.photoURL}" alt="">` : (u.name||'?')[0].toUpperCase();
+      return `<div class="friend-card">
+        <div class="friend-avatar">${av}</div>
+        <div class="friend-info">
+          <div class="friend-name">${u.name||u.email}</div>
+          <div class="friend-count">Tocca per vedere la collezione</div>
+        </div>
+        <button class="friend-action view" onclick="viewFriendCollection('${s.id}','${u.name||u.email}')">Vedi</button>
+      </div>`;
+    }).join('');
+  });
+}
+
+function renderFriendRequests(requests) {
+  const sec = document.getElementById('friend-requests-section');
+  const cont = document.getElementById('friend-requests');
+  if (!requests.length) { sec.style.display='none'; return; }
+  sec.style.display='block';
+  Promise.all(requests.map(uid => getDoc(doc(db,'users',uid)))).then(snaps => {
+    cont.innerHTML = snaps.map(s => {
+      if (!s.exists()) return '';
+      const u = s.data();
+      return `<div class="friend-card">
+        <div class="friend-avatar">${(u.name||'?')[0].toUpperCase()}</div>
+        <div class="friend-info"><div class="friend-name">${u.name||u.email}</div></div>
+        <button class="friend-action accept" onclick="acceptFriend('${s.id}')">Accetta</button>
+      </div>`;
+    }).join('');
+  });
+}
+
+window.searchFriends = async function() {
+  const q = document.getElementById('friend-search-input').value.trim().toLowerCase();
+  const sec = document.getElementById('search-results-section');
+  const cont = document.getElementById('friend-search-results');
+  if (!q || q.length < 3) { sec.style.display='none'; return; }
+  try {
+    const snap = await getDocs(collection(db,'users'));
+    const results = snap.docs.filter(d => {
+      if (d.id === currentUser.uid) return false;
+      const u = d.data();
+      return u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q);
+    });
+    sec.style.display = 'block';
+    if (!results.length) { cont.innerHTML='<div style="color:var(--text-dim);font-size:.85rem;padding:.5rem 0">Nessun utente trovato</div>'; return; }
+    cont.innerHTML = results.map(s => {
+      const u = s.data();
+      const alreadyFriend = friendsData.includes(s.id);
+      return `<div class="friend-card">
+        <div class="friend-avatar">${(u.name||'?')[0].toUpperCase()}</div>
+        <div class="friend-info"><div class="friend-name">${u.name||u.email}</div><div class="friend-count">${u.email}</div></div>
+        ${alreadyFriend
+          ? `<button class="friend-action view" onclick="viewFriendCollection('${s.id}','${u.name||u.email}')">Vedi</button>`
+          : `<button class="friend-action" onclick="sendFriendRequest('${s.id}',this)">Aggiungi</button>`}
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+};
+
+window.sendFriendRequest = async function(uid, btn) {
+  try {
+    await updateDoc(doc(db,'users',uid), { friendRequests: arrayUnion(currentUser.uid) });
+    btn.textContent = 'Inviato ✓';
+    btn.classList.add('pending');
+    btn.disabled = true;
+    showToast('✅ Richiesta inviata!');
+  } catch(e) { showToast('❌ Errore'); }
+};
+
+window.acceptFriend = async function(uid) {
+  try {
+    await updateDoc(doc(db,'users',currentUser.uid), {
+      friends: arrayUnion(uid),
+      friendRequests: arrayRemove(uid)
+    });
+    await updateDoc(doc(db,'users',uid), { friends: arrayUnion(currentUser.uid) });
+    showToast('✅ Amici!');
+    renderFriends();
+  } catch(e) { showToast('❌ Errore'); }
+};
+
+window.viewFriendCollection = async function(uid, name) {
+  viewingFriendId = uid;
+  document.getElementById('friend-view-name').textContent = name;
+  document.getElementById('friend-collection-view').style.display='block';
+  const q = query(collection(db,'shots'), where('userId','==',uid));
+  const snap = await getDocs(q);
+  const shots = snap.docs.map(d=>({id:d.id,...d.data()}));
+  renderFriendShots(shots);
+};
+
+function renderFriendShots(shots) {
+  const grid = document.getElementById('friend-shots-grid');
+  if (!shots.length) { grid.innerHTML='<div class="empty-state"><div class="icon">🥃</div><p>Nessun bicchierino ancora</p></div>'; return; }
+  grid.innerHTML = shots.map((s,i) => `
+    <div class="shot-card" style="animation-delay:${i*40}ms" onclick="openFriendDetail('${s.id}')">
+      ${s.imageUrl ? `<img class="shot-img" src="${s.imageUrl}" alt="${s.name}" loading="lazy">` : `<div class="shot-img-placeholder">🥃</div>`}
+      <div class="shot-info">
+        <div class="shot-name">${s.name||'?'}</div>
+        <div class="shot-place">📍 ${s.place||''}</div>
+        <div class="shot-likes">❤️ ${(s.likes||[]).length}</div>
+      </div>
+    </div>`).join('');
+  // Store for detail
+  window._friendShots = shots;
+}
+
+window.openFriendDetail = function(id) {
+  const s = window._friendShots?.find(x=>x.id===id);
+  if (!s) return;
+  currentShotId = id;
+  // Temporarily add to myShots so openDetail can use it but mark as friend's
+  const existing = myShots.find(x=>x.id===id);
+  if (!existing) myShots.push(s);
+  openDetail(id);
+};
+
+window.closeFriendView = function() {
+  document.getElementById('friend-collection-view').style.display='none';
+};
+
+</script>
+</body>
+</html>
